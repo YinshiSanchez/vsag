@@ -40,7 +40,7 @@ compute_recall(const std::vector<std::vector<int>>& groundtruth,
     return recall;
 }
 
-int bench(int max_elements, int query_elements, int dim, int ef_search, nlohmann::json hnsw_parameters,
+int bench(int max_elements, int query_elements, int dim, int ef_search, int k, nlohmann::json hnsw_parameters,
     std::vector<float> &X_train, std::vector<float> &X_test, std::vector<std::vector<int>> &ground_truth
     ) {
     std::shared_ptr<int64_t[]> ids(new int64_t[max_elements]);
@@ -94,7 +94,7 @@ int bench(int max_elements, int query_elements, int dim, int ef_search, nlohmann
             nlohmann::json parameters{
                 {"hnsw", {{"ef_search", ef_search}}},
             };
-            int64_t k = 100;
+            // int64_t k = 100;
             auto start = std::chrono::system_clock::now();
             auto result = hnsw->KnnSearch(query, k, parameters.dump());
             auto end = std::chrono::system_clock::now();
@@ -135,6 +135,7 @@ int main() {
     int max_degree;
     int ef_construction;
     int ef_search;
+    int k;
     bool use_static;
     float threshold;
     std::string file_name;
@@ -151,19 +152,21 @@ int main() {
     dim = config["dim"].get<int>();
     max_elements = config["max_elements"].get<int>();
     query_elements = config["query_elements"].get<int>();
-    max_degree = config["max_degree"].get<int>();
+    max_degree = config["Max_degree"].get<int>();
     ef_construction = config["ef_construction"].get<int>();
     ef_search = config["ef_search"].get<int>();
+    k = config["k"].get<int>();
     use_static = config["use_static"].get<bool>();
     threshold = config["threshold"].get<float>();
     file_name = config["file_name"].get<std::string>();
 
     std::cout << "dim: " << dim << std::endl;
-    std::cout << "max_elements: " << max_elements << std::endl;
+    std::cout << "max_elements(M): " << max_elements << std::endl;
     std::cout << "query_elements: " << query_elements << std::endl;
     std::cout << "max_degree: " << max_degree << std::endl;
     std::cout << "ef_construction: " << ef_construction << std::endl;
     std::cout << "ef_search: " << ef_search << std::endl;
+    std::cout << "k: " << k << std::endl;
     std::cout << "threshold: " << threshold << std::endl;
     std::cout << "file_name: " << file_name << std::endl;
     nlohmann::json hnsw_parameters{{"max_degree", max_degree},
@@ -246,7 +249,7 @@ int main() {
 
         std::cout << "Ground Truth Data Loaded: " << ground_truth_dims[0] << " samples, " << ground_truth_dims[1] << " features." << std::endl;
 
-        bench(max_elements, query_elements, dim, ef_search, hnsw_parameters, X_train, X_test, ground_truth);
+        bench(max_elements, query_elements, dim, ef_search, k, hnsw_parameters, X_train, X_test, ground_truth);
     } catch (const FileIException& e) {
         e.printErrorStack();
     } catch (const DataSetIException& e) {

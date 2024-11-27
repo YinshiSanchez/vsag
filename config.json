@@ -2,10 +2,11 @@
   "dim": 784,
   "max_elements": 60000,
   "query_elements": 10000,
-  "max_degree": 16,
-  "ef_construction": 200,
-  "ef_search": 100,
+  "Max_degree": 48,
+  "ef_construction": 500,
+  "ef_search": 500,
+  "k": 10,
   "use_static": false,
   "threshold": 8.0,
-  "file_name": "./data/fashion-mnist-784-euclidean.hdf5"
+  "file_name": "./data/sift-128-euclidean.hdf5"
 }
