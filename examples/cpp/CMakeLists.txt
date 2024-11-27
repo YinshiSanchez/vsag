@@ -33,3 +33,6 @@ target_link_libraries(bench_diskann vsag)
 
 add_executable(bench_hgraph bench_hgraph.cpp)
 target_link_libraries(bench_hgraph vsag)
+
+add_executable(bench_glass bench_glass.cpp)
+target_link_libraries(bench_glass vsag)
