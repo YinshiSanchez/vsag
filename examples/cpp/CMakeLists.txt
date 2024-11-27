@@ -36,3 +36,12 @@ target_link_libraries(bench_hgraph vsag)
 
 add_executable(bench_glass bench_glass.cpp)
 target_link_libraries(bench_glass vsag)
+
+add_executable (benchmarks benchmarks.cpp)
+set(HDF5_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/hdf5/install/include/")
+set(HDF5_LIBRARIES "${CMAKE_BINARY_DIR}/hdf5/install/lib/libhdf5_cpp.so;${CMAKE_BINARY_DIR}/hdf5/install/lib/libhdf5.so")
+include_directories(${HDF5_INCLUDE_DIRS})
+target_link_libraries(benchmarks PRIVATE ${HDF5_LIBRARIES})
+target_link_libraries(benchmarks PRIVATE vsag)
+
+add_dependencies(benchmarks hdf5)
