@@ -1,0 +1,12 @@
+{
+  "dim": 128,
+  "max_elements": 1000000,
+  "query_elements": 10000,
+  "Max_degree": 48,
+  "ef_construction": 500,
+  "ef_search": 500,
+  "k": 100,
+  "use_static": false,
+  "threshold": 8.0,
+  "file_name": "./data/sift-128-euclidean.hdf5"
+}
