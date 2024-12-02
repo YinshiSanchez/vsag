@@ -70,7 +70,7 @@ vsag_add_shared_linker_flag(-fvisibility=hidden)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -gdwarf-4")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -gdwarf-4 -Wno-deprecated-builtins")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -gdwarf-4")
 else()
   if(ENABLE_LIBCXX)
     message(FATAL_ERROR "gcc does not support using libc++")
@@ -209,7 +209,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
 # debug or release
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Werror=suggest-override")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -fPIC -Werror=suggest-override")
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0")

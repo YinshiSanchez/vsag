@@ -59,9 +59,9 @@ bench(const std::string& index_type,
     nlohmann::json index_parameters{
         {"dtype", "float32"}, {"metric_type", "l2"}, {"dim", dim}, {index_type, hnsw_parameters}};
     std::shared_ptr<vsag::Index> index;
-    if (auto index = vsag::Factory::CreateIndex(index_type, index_parameters.dump());
-        index.has_value()) {
-        index = index.value();
+    if (auto expected_index = vsag::Factory::CreateIndex(index_type, index_parameters.dump());
+        expected_index.has_value()) {
+        index = expected_index.value();
     } else {
         std::cout << "Build HNSW Error" << std::endl;
         return 0;
@@ -136,6 +136,17 @@ bench(const std::string& index_type,
 
 int
 main() {
+#if defined(__AVX512F__)
+    std::cout << "AVX-512 is supported." << std::endl;
+#elif defined(__AVX2__)
+    std::cout << "AVX2 is supported." << std::endl;
+#elif defined(__AVX__)
+    std::cout << "AVX is supported." << std::endl;
+#elif defined(__SSE2__)
+    std::cout << "SSE2 is supported." << std::endl;
+#else
+    std::cout << "No advanced vector extensions are supported." << std::endl;
+#endif
     int dim;
     int max_elements;
     int query_elements;

@@ -119,7 +119,7 @@ Glass::build(const DatasetPtr& base) {
         }
 
         // build final graph
-        final_graph_.init(num_elements, M_);
+        final_graph_.init(num_elements, 2*M_);
         for (uint32_t i = 0; i < num_elements; ++i) {
             int* edges = (int*)alg_hnsw_->getLinklist0(i);
             for (int j = 1; j <= edges[0]; ++j) {
