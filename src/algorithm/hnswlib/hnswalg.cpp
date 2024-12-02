@@ -14,6 +14,7 @@
 // limitations under the License.
 
 #include "hnswalg.h"
+#include "hnswlib.h"
 
 #include <memory>
 namespace hnswlib {
@@ -387,25 +388,17 @@ HierarchicalNSW::searchBaseLayerST(InnerIdType ep_id,
 
     visited_array[ep_id] = visited_array_tag;
 
-    while (not candidate_set.empty()) {
-        std::pair<float, InnerIdType> current_node_pair = candidate_set.top();
+    std::pair<float, InnerIdType> current_node_pair = candidate_set.top();
+    candidate_set.pop();
 
-        if ((-current_node_pair.first) > lowerBound &&
-            (top_candidates.size() == ef || (!isIdAllowed && !has_deletions))) {
-            break;
-        }
-        candidate_set.pop();
-
-        InnerIdType current_node_id = current_node_pair.second;
-        int* data = (int*)getLinklist0(current_node_id);
-        size_t size = getListCount((linklistsizeint*)data);
-        //                bool cur_node_deleted = isMarkedDeleted(current_node_id);
-        if (collect_metrics) {
-            metric_hops_++;
-            metric_distance_computations_ += size;
-        }
-
-        auto vector_data_ptr = data_level0_memory_->GetElementPtr((*(data + 1)), offset_data_);
+    InnerIdType current_node_id = current_node_pair.second;
+    int* data = (int*)getLinklist0(current_node_id);
+    size_t size = getListCount((linklistsizeint*)data);
+    if (collect_metrics) {
+        metric_hops_++;
+        metric_distance_computations_ += size;
+    }
+    auto vector_data_ptr = data_level0_memory_->GetElementPtr((*(data + 1)), offset_data_);
 #ifdef USE_SSE
         _mm_prefetch((char*)(visited_array + *(data + 1)), _MM_HINT_T0);
         _mm_prefetch((char*)(visited_array + *(data + 1) + 64), _MM_HINT_T0);
@@ -413,6 +406,15 @@ HierarchicalNSW::searchBaseLayerST(InnerIdType ep_id,
         _mm_prefetch((char*)(data + 2), _MM_HINT_T0);
 #endif
 
+    // 使用 OpenMP 来并行化节点的处理
+    #pragma omp parallel num_threads(6)
+    {
+        // 每个线程都有一个自己的临时候选队列
+        MaxHeap thread_candidate_set(allocator_);
+
+        // 线程局部的lowerBound
+        float thread_lower_bound = lowerBound;
+        #pragma omp for
         for (size_t j = 1; j <= size; j++) {
             int candidate_id = *(data + j);
             size_t pre_l = std::min(j, size - 2);
@@ -422,14 +424,18 @@ HierarchicalNSW::searchBaseLayerST(InnerIdType ep_id,
             _mm_prefetch((char*)(visited_array + *(data + pre_l + 1)), _MM_HINT_T0);
             _mm_prefetch(vector_data_ptr, _MM_HINT_T0);  ////////////
 #endif
+            #pragma omp critical
             if (visited_array[candidate_id] != visited_array_tag) {
                 visited_array[candidate_id] = visited_array_tag;
 
                 char* currObj1 = (getDataByInternalId(candidate_id));
+#ifdef USE_SSE
+            _mm_prefetch(data_point, _MM_HINT_T0);
+#endif
                 float dist = fstdistfunc_(data_point, currObj1, dist_func_param_);
                 if (top_candidates.size() < ef || lowerBound > dist) {
-                    candidate_set.emplace(-dist, candidate_id);
-                    vector_data_ptr = data_level0_memory_->GetElementPtr(candidate_set.top().second,
+                    thread_candidate_set.emplace(-dist, candidate_id);
+                    vector_data_ptr = data_level0_memory_->GetElementPtr(thread_candidate_set.top().second,
                                                                          offsetLevel0_);
 #ifdef USE_SSE
                     _mm_prefetch(vector_data_ptr, _MM_HINT_T0);
@@ -447,7 +453,144 @@ HierarchicalNSW::searchBaseLayerST(InnerIdType ep_id,
                 }
             }
         }
+    while (not thread_candidate_set.empty()) {
+        std::pair<float, InnerIdType> current_node_pair = thread_candidate_set.top();
+
+        if ((-current_node_pair.first) > lowerBound &&
+            (top_candidates.size() == ef || (!isIdAllowed && !has_deletions))) {
+            break;
+        }
+        thread_candidate_set.pop();
+
+        InnerIdType current_node_id = current_node_pair.second;
+        int* data = (int*)getLinklist0(current_node_id);
+        size_t size = getListCount((linklistsizeint*)data);
+        //                bool cur_node_deleted = isMarkedDeleted(current_node_id);
+        if (collect_metrics) {
+            #pragma omp atomic
+            metric_hops_++;
+            #pragma omp atomic
+            metric_distance_computations_ += size;
+        }
+
+        auto vector_data_ptr = data_level0_memory_->GetElementPtr((*(data + 1)), offset_data_);
+#ifdef USE_SSE
+        _mm_prefetch((char*)(visited_array + *(data + 1)), _MM_HINT_T0);
+        _mm_prefetch((char*)(visited_array + *(data + 1) + 64), _MM_HINT_T0);
+        _mm_prefetch(vector_data_ptr, _MM_HINT_T0);
+        _mm_prefetch((char*)(data + 2), _MM_HINT_T0);
+#endif
+
+        #pragma omp for
+        for (size_t j = 1; j <= size; j++) {
+            int candidate_id = *(data + j);
+            size_t pre_l = std::min(j, size - 2);
+            vector_data_ptr =
+                data_level0_memory_->GetElementPtr((*(data + pre_l + 1)), offset_data_);
+#ifdef USE_SSE
+            _mm_prefetch((char*)(visited_array + *(data + pre_l + 1)), _MM_HINT_T0);
+            _mm_prefetch(vector_data_ptr, _MM_HINT_T0);  ////////////
+#endif
+            if (visited_array[candidate_id] == visited_array_tag) {
+                continue;
+            }
+            #pragma omp critical
+            visited_array[candidate_id] = visited_array_tag;
+
+            char* currObj1 = (getDataByInternalId(candidate_id));
+#ifdef USE_SSE
+            _mm_prefetch(data_point, _MM_HINT_T0);
+#endif
+            float dist = fstdistfunc_(data_point, currObj1, dist_func_param_);
+            if (top_candidates.size() < ef || lowerBound > dist) {
+                thread_candidate_set.emplace(-dist, candidate_id);
+                vector_data_ptr = data_level0_memory_->GetElementPtr(thread_candidate_set.top().second,
+                                                                        offsetLevel0_);
+#ifdef USE_SSE
+                _mm_prefetch(vector_data_ptr, _MM_HINT_T0);
+#endif
+
+                #pragma omp critical
+                if ((!has_deletions || !isMarkedDeleted(candidate_id)) &&
+                    ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(candidate_id))))
+                    top_candidates.emplace(dist, candidate_id);
+
+                #pragma omp critical
+                if (top_candidates.size() > ef)
+                    top_candidates.pop();
+
+                #pragma omp critical
+                if (not top_candidates.empty())
+                    lowerBound = top_candidates.top().first;
+            }
+        }
     }
+
+    }
+//     while (not candidate_set.empty()) {
+//         std::pair<float, InnerIdType> current_node_pair = candidate_set.top();
+
+//         if ((-current_node_pair.first) > lowerBound &&
+//             (top_candidates.size() == ef || (!isIdAllowed && !has_deletions))) {
+//             break;
+//         }
+//         candidate_set.pop();
+
+//         InnerIdType current_node_id = current_node_pair.second;
+//         int* data = (int*)getLinklist0(current_node_id);
+//         size_t size = getListCount((linklistsizeint*)data);
+//         //                bool cur_node_deleted = isMarkedDeleted(current_node_id);
+//         if (collect_metrics) {
+//             metric_hops_++;
+//             metric_distance_computations_ += size;
+//         }
+
+//         auto vector_data_ptr = data_level0_memory_->GetElementPtr((*(data + 1)), offset_data_);
+// #ifdef USE_SSE
+//         _mm_prefetch((char*)(visited_array + *(data + 1)), _MM_HINT_T0);
+//         _mm_prefetch((char*)(visited_array + *(data + 1) + 64), _MM_HINT_T0);
+//         _mm_prefetch(vector_data_ptr, _MM_HINT_T0);
+//         _mm_prefetch((char*)(data + 2), _MM_HINT_T0);
+// #endif
+
+//         for (size_t j = 1; j <= size; j++) {
+//             int candidate_id = *(data + j);
+//             size_t pre_l = std::min(j, size - 2);
+//             vector_data_ptr =
+//                 data_level0_memory_->GetElementPtr((*(data + pre_l + 1)), offset_data_);
+// #ifdef USE_SSE
+//             _mm_prefetch((char*)(visited_array + *(data + pre_l + 1)), _MM_HINT_T0);
+//             _mm_prefetch(vector_data_ptr, _MM_HINT_T0);  ////////////
+// #endif
+//             if (visited_array[candidate_id] != visited_array_tag) {
+//                 visited_array[candidate_id] = visited_array_tag;
+
+//                 char* currObj1 = (getDataByInternalId(candidate_id));
+// #ifdef USE_SSE
+//             _mm_prefetch(data_point, _MM_HINT_T0);
+// #endif
+//                 float dist = fstdistfunc_(data_point, currObj1, dist_func_param_);
+//                 if (top_candidates.size() < ef || lowerBound > dist) {
+//                     candidate_set.emplace(-dist, candidate_id);
+//                     vector_data_ptr = data_level0_memory_->GetElementPtr(candidate_set.top().second,
+//                                                                          offsetLevel0_);
+// #ifdef USE_SSE
+//                     _mm_prefetch(vector_data_ptr, _MM_HINT_T0);
+// #endif
+
+//                     if ((!has_deletions || !isMarkedDeleted(candidate_id)) &&
+//                         ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(candidate_id))))
+//                         top_candidates.emplace(dist, candidate_id);
+
+//                     if (top_candidates.size() > ef)
+//                         top_candidates.pop();
+
+//                     if (not top_candidates.empty())
+//                         lowerBound = top_candidates.top().first;
+//                 }
+//             }
+//         }
+//     }
 
     visited_list_pool_->releaseVisitedList(vl);
     return top_candidates;
