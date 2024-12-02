@@ -54,6 +54,11 @@ public:
         return &dim_;
     }
 
+    const char*
+    get_metric() override {
+        return "IP";
+    }
+
     ~InnerProductSpace() {
     }
 };

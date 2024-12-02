@@ -33,6 +33,11 @@ public:
     virtual void*
     get_dist_func_param() = 0;
 
+    virtual const char*
+    get_metric() {
+        return "Unimplementation";
+    }
+
     virtual ~SpaceInterface() {
     }
 };
