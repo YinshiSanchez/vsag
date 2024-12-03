@@ -221,6 +221,11 @@ public:
     }
 
     size_t
+    getDim() const {
+        return dim_;
+    }
+
+    size_t
     getCurrentElementCount() override {
         return cur_element_count_;
     }

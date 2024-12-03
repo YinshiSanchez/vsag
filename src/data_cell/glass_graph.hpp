@@ -3,7 +3,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <istream>
 #include <memory>
+#include <ostream>
 #include <vector>
 
 #include "data_cell/glass_initializer.hpp"
@@ -111,6 +113,19 @@ struct Graph {
     }
 
     void
+    save(std::ostream& writer) const {
+        int nep = eps.size();
+        writer.write((char*)&nep, 4);
+        writer.write((char*)eps.data(), nep * 4);
+        writer.write((char*)&N, 4);
+        writer.write((char*)&K, 4);
+        writer.write((char*)data, N * K * 4);
+        if (initializer) {
+            initializer->save(writer);
+        }
+    }
+
+    void
     load(const std::string& filename) {
         static_assert(std::is_same_v<node_t, int32_t>);
         free(data);
@@ -128,6 +143,24 @@ struct Graph {
             initializer->load(reader);
         }
         printf("Graph Loding done\n");
+    }
+
+    void
+    load(std::istream& reader) {
+        static_assert(std::is_same_v<node_t, int32_t>);
+        free(data);
+        int nep;
+        reader.read((char*)&nep, 4);
+        eps.resize(nep);
+        reader.read((char*)eps.data(), nep * 4);
+        reader.read((char*)&N, 4);
+        reader.read((char*)&K, 4);
+        data = (node_t*)alloc2M((size_t)N * K * 4);
+        reader.read((char*)data, N * K * 4);
+        if (reader.peek() != EOF) {
+            initializer = std::make_unique<GraphInitializer>(N);
+            initializer->load(reader);
+        }
     }
 };
 

@@ -3,6 +3,7 @@
 #include <fmt/format-inl.h>
 
 #include <cstdint>
+#include <cstring>
 #include <exception>
 #include <memory>
 #include <new>
@@ -119,7 +120,7 @@ Glass::build(const DatasetPtr& base) {
         }
 
         // build final graph
-        final_graph_.init(num_elements, 2*M_);
+        final_graph_.init(num_elements, 2 * M_);
         for (uint32_t i = 0; i < num_elements; ++i) {
             int* edges = (int*)alg_hnsw_->getLinklist0(i);
             for (int j = 1; j <= edges[0]; ++j) {
@@ -503,6 +504,7 @@ Glass::serialize(std::ostream& out_stream) {
     // no expected exception
     std::shared_lock lock(rw_mutex_);
     alg_hnsw_->saveIndex(out_stream);
+    final_graph_.save(out_stream);
 
     if (use_conjugate_graph_) {
         conjugate_graph_->Serialize(out_stream);
@@ -596,6 +598,24 @@ Glass::deserialize(std::istream& in_stream) {
             return tl::unexpected(result.error());
         }
         alg_hnsw_->loadIndex(in_stream, this->space_.get());
+        final_graph_.load(in_stream);
+
+        M_ = final_graph_.K;
+        dim_ = alg_hnsw_->getDim();
+
+        float* vector = new float[alg_hnsw_->getCurrentElementCount() * dim_];
+        std::cout << "max elements: " << alg_hnsw_->getCurrentElementCount() << std::endl;
+        for (size_t i = 0; i < alg_hnsw_->getCurrentElementCount() - 1; ++i) {
+            memcpy(vector + i * dim_, alg_hnsw_->getDataByLabel(i), dim_ * sizeof(float));
+        }
+
+        searcher_ = glass::create_searcher(final_graph_, space_->get_metric(), 2);
+        searcher_->SetData(vector, alg_hnsw_->getCurrentElementCount(), dim_);
+        searcher_->SetEf(200);
+        searcher_->Optimize(1);
+
+        delete[] vector;
+
         if (use_conjugate_graph_ and not conjugate_graph_->Deserialize(in_stream).has_value()) {
             throw std::runtime_error("error in deserialize conjugate graph");
         }
