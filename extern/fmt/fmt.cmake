@@ -16,6 +16,7 @@ FetchContent_Declare(
     INACTIVITY_TIMEOUT 5
     TIMEOUT 30
 )
+FetchContent_MakeAvailable(fmt)
 
 # exclude fmt in vsag installation
 FetchContent_GetProperties(fmt)

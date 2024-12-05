@@ -43,7 +43,7 @@ option(ENABLE_THIN_LTO "Whether to build with thin lto -flto=thin" OFF)
 option(ENABLE_CCACHE "Whether to open ccache" OFF)
 option(ENABLE_COVERAGE "Enable gcov (debug, Linux builds only)" OFF)
 option(ENABLE_INTEL_MKL "Enable intel-mkl (x86 platform only)" ON)
-option(ENABLE_CXX11_ABI "Use CXX11 ABI" ON)
+option(ENABLE_CXX11_ABI "Use CXX11 ABI" OFF)
 option(ENABLE_LIBCXX "Use libc++ instead of libstdc++" OFF) # only support in clang
 option(ENABLE_TOOLS "Whether compile vsag tools" ON)
 option(ENABLE_EXAMPLES "Whether compile examples" ON)
@@ -53,7 +53,7 @@ option(DISABLE_AVX2_FORCE "Force disable avx2 and higher instructions" OFF)
 option(DISABLE_AVX512_FORCE "Force disable avx512 instructions" OFF)
 
 if(ENABLE_CXX11_ABI)
-  add_definitions(-D_GLIBCXX_USE_CXX11_ABI=1)
+  # add_definitions(-D_GLIBCXX_USE_CXX11_ABI=1)
   message(STATUS "Using libstdc++ with C++11 ABI")
 else()
   add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
@@ -298,3 +298,28 @@ add_custom_target(version
   -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateVersionHeader.cmake
 )
 add_dependencies(vsag version)
+
+# set path
+set(VSAG_BASE_DIR ${CMAKE_BINARY_DIR})
+set(VSAG_LIB_DIR ${VSAG_BASE_DIR}/_deps)
+# Create shared library
+add_library(ob_vsag SHARED ob_vsag_lib.cpp)
+target_compile_options(ob_vsag PRIVATE -std=c++17)
+target_include_directories(ob_vsag PRIVATE
+                           ${VSAG_BASE_DIR}/include
+                           ${VSAG_LIB_DIR}/nlohmann_json-src/include
+                           ${VSAG_LIB_DIR}/roaringbitmap-src/include
+                           ${VSAG_LIB_DIR}/fmt-src/include)
+target_compile_definitions(ob_vsag PRIVATE _GLIBCXX_USE_CXX11_ABI=0)
+target_link_libraries(ob_vsag PUBLIC vsag_static -static-libstdc++ -static-libgcc)
+add_dependencies(ob_vsag vsag_static)
+# Create static library
+add_library(ob_vsag_static STATIC ob_vsag_lib.cpp)
+target_compile_options(ob_vsag_static PRIVATE -std=c++17)
+target_compile_definitions(ob_vsag_static PUBLIC _GLIBCXX_USE_CXX11_ABI=0)
+target_include_directories(ob_vsag_static PUBLIC
+                           ${VSAG_BASE_DIR}/include
+                           ${VSAG_LIB_DIR}/nlohmann_json-src/include
+                           ${VSAG_LIB_DIR}/roaringbitmap-src/include
+                           ${VSAG_LIB_DIR}/fmt-src/include)
+add_dependencies(ob_vsag_static vsag_static)

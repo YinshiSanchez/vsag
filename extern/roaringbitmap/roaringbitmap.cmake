@@ -9,7 +9,7 @@ FetchContent_Declare(
                 DOWNLOAD_NO_PROGRESS 0
                 INACTIVITY_TIMEOUT 5
                 # filesize ~= 90MiB
-                TIMEOUT 90
+                TIMEOUT 9000
 )
 
 set(ROARING_USE_CPM OFF)

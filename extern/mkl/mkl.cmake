@@ -1,10 +1,11 @@
 # find_package(MKL CONFIG REQUIRED)
 
 if (CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "x86_64" AND ENABLE_INTEL_MKL)
-    set(POSSIBLE_OMP_PATHS "/opt/intel/oneapi/compiler/2024.2/lib/libiomp5.so;/opt/intel/oneapi/compiler/2024.2/lib/libiomp5.so;/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin/libiomp5.so;/usr/lib/x86_64-linux-gnu/libiomp5.so;/opt/intel/lib/intel64_lin/libiomp5.so;/opt/intel/compilers_and_libraries_2020.4.304/linux/compiler/lib/intel64_lin/libiomp5.so")
+    set(POSSIBLE_OMP_PATHS "/opt/intel/oneapi/compiler/2024.2/lib/libiomp5.so;/opt/intel/oneapi/compiler/2024.2/lib/libiomp5.so;/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin/libiomp5.so;/usr/lib/x86_64-linux-gnu/libiomp5.so;/opt/intel/lib/intel64_lin/libiomp5.so;/opt/intel/compilers_and_libraries_2020.4.304/linux/compiler/lib/intel64_lin/libiomp5.so;/opt/intel/oneapi/compiler/latest/lib/libiomp5.so")
     foreach(POSSIBLE_OMP_PATH ${POSSIBLE_OMP_PATHS})
         if (EXISTS ${POSSIBLE_OMP_PATH})
             get_filename_component(OMP_PATH ${POSSIBLE_OMP_PATH} DIRECTORY)
+            message("OMP PATH: ${OMP_PATH}")
         endif()
     endforeach()
 
@@ -12,6 +13,8 @@ if (CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "x86_64" AND ENABLE_INTEL_MKL)
     foreach(POSSIBLE_MKL_LIB_PATH ${POSSIBLE_MKL_LIB_PATHS})
         if (EXISTS ${POSSIBLE_MKL_LIB_PATH})
             get_filename_component(MKL_PATH ${POSSIBLE_MKL_LIB_PATH} DIRECTORY)
+            message("MKL PATH: ${MKL_PATH}")
+            break()
         endif()
     endforeach()
 

@@ -29,16 +29,14 @@
 
 #include <iostream>
 
-namespace vsag {
+namespace vsag
+{
 
+typedef float (*DistanceFunc)(const void *pVect1, const void *pVect2, const void *qty_ptr);
+extern DistanceFunc GetInnerProductDistanceFunc(size_t dim);
+extern DistanceFunc GetL2DistanceFunc(size_t dim);
 
-typedef float (*DistanceFunc)(const void* pVect1, const void* pVect2, const void* qty_ptr);
-extern DistanceFunc
-GetInnerProductDistanceFunc(size_t dim);
-extern DistanceFunc
-GetL2DistanceFunc(size_t dim);
-
-}  // namespace vsag
+} // namespace vsag
 
 namespace diskann
 {
@@ -172,7 +170,7 @@ float DistanceL2Int8::compare(const int8_t *a, const int8_t *b, uint32_t size) c
 #endif
 #else
     int32_t result = 0;
-#pragma omp simd reduction(+ : result) aligned(a, b : 8)
+    // #pragma omp simd reduction(+ : result) aligned(a, b : 8)
     for (int32_t i = 0; i < (int32_t)size; i++)
     {
         result += ((int32_t)((int16_t)a[i] - (int16_t)b[i])) * ((int32_t)((int16_t)a[i] - (int16_t)b[i]));
@@ -185,7 +183,7 @@ float DistanceL2UInt8::compare(const uint8_t *a, const uint8_t *b, uint32_t size
 {
     uint32_t result = 0;
 #ifndef _WINDOWS
-#pragma omp simd reduction(+ : result) aligned(a, b : 8)
+// #pragma omp simd reduction(+ : result) aligned(a, b : 8)
 #endif
     for (int32_t i = 0; i < (int32_t)size; i++)
     {
@@ -231,7 +229,7 @@ float DistanceL2Float::compare(const float *a, const float *b, uint32_t size) co
     result = _mm256_reduce_add_ps(sum);
 #else
 #ifndef _WINDOWS
-#pragma omp simd reduction(+ : result) aligned(a, b : 32)
+// #pragma omp simd reduction(+ : result) aligned(a, b : 32)
 #endif
     for (int32_t i = 0; i < (int32_t)size; i++)
     {
@@ -367,9 +365,9 @@ template <typename T> float DistanceInnerProduct<T>::inner_product(const T *a, c
 #else
 #ifdef __SSE2__
 #define SSE_DOT(addr1, addr2, dest, tmp1, tmp2)                                                                        \
-    tmp1 = _mm_loadu_ps(addr1);                                                                                     \
-    tmp2 = _mm_loadu_ps(addr2);                                                                                     \
-    tmp1 = _mm_mul_ps(tmp1, tmp2);                                                                                  \
+    tmp1 = _mm_loadu_ps(addr1);                                                                                        \
+    tmp2 = _mm_loadu_ps(addr2);                                                                                        \
+    tmp1 = _mm_mul_ps(tmp1, tmp2);                                                                                     \
     dest = _mm_add_ps(dest, tmp1);
     __m128 sum;
     __m128 l0, l1, l2, l3;
@@ -479,8 +477,8 @@ template <typename T> float DistanceFastL2<T>::norm(const T *a, uint32_t size) c
 #else
 #ifdef __SSE2__
 #define SSE_L2NORM(addr, dest, tmp)                                                                                    \
-    tmp = _mm_loadu_ps(addr);                                                                                       \
-    tmp = _mm_mul_ps(tmp, tmp);                                                                                     \
+    tmp = _mm_loadu_ps(addr);                                                                                          \
+    tmp = _mm_mul_ps(tmp, tmp);                                                                                        \
     dest = _mm_add_ps(dest, tmp);
 
     __m128 sum;
@@ -636,7 +634,8 @@ float VsagDistanceL2Float::compare(const float *a, const float *b, uint32_t size
     return dist_func_(a, b, &dim);
 }
 
-VsagDistanceInnerProductFloat::VsagDistanceInnerProductFloat(size_t dim) : Distance<float>(diskann::Metric::INNER_PRODUCT)
+VsagDistanceInnerProductFloat::VsagDistanceInnerProductFloat(size_t dim)
+    : Distance<float>(diskann::Metric::INNER_PRODUCT)
 {
     dist_func_ = vsag::GetInnerProductDistanceFunc(dim);
 }
