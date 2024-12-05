@@ -46,6 +46,11 @@ public:
         return &dim_;
     }
 
+    const char*
+    get_metric() override {
+        return "L2";
+    }
+
     ~L2Space() {
     }
 };

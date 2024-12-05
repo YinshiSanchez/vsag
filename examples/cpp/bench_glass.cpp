@@ -10,6 +10,68 @@
 #include "vsag/dataset.h"
 #include "vsag/vsag.h"
 
+class HighPrecisionTimer {
+public:
+    HighPrecisionTimer() : total_duration(0), running(false) {
+    }
+
+    // 开始计时
+    void
+    start() {
+        if (!running) {
+            start_time = std::chrono::high_resolution_clock::now();
+            running = true;
+        }
+    }
+
+    // 停止计时并累加时间
+    void
+    stop() {
+        if (running) {
+            auto end_time = std::chrono::high_resolution_clock::now();
+            total_duration +=
+                std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+            running = false;
+        }
+    }
+
+    // 获取累积时间（以纳秒为单位）
+    long long
+    getTotalTimeNanoseconds() const {
+        return total_duration;
+    }
+
+    // 获取累积时间（以微秒为单位）
+    double
+    getTotalTimeMicroseconds() const {
+        return total_duration / 1000.0;
+    }
+
+    // 获取累积时间（以毫秒为单位）
+    double
+    getTotalTimeMilliseconds() const {
+        return total_duration / 1000000.0;
+    }
+
+    // 获取累积时间（以秒为单位）
+    double
+    getTotalTimeSeconds() const {
+        return total_duration / 1000000000.0;
+    }
+
+    // 重置计时器
+    void
+    reset() {
+        total_duration = 0;
+        running = false;
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;
+    long long total_duration;  // 总耗时，单位：纳秒
+    bool running;              // 记录计时器是否正在运行
+};
+
 std::vector<float>
 load_fvecs(std::string_view file_path, uint32_t& vec_dim, uint32_t& max_elements) {
     std::ifstream file(std::string(file_path), std::ios::binary);
@@ -96,27 +158,27 @@ main() {
     int max_degree = 24;  // Tightly connected with internal dimensionality of the data
     // strongly affects the memory consumption
     int ef_construction = 500;  // Controls index search speed/build speed tradeoff
-    int ef_search = 500;
+    int ef_search = 200;
     float threshold = 8.0;
 
-    nlohmann::json hnsw_parameters{{"max_degree", max_degree},
-                                   {"ef_construction", ef_construction},
-                                   {"ef_search", ef_search},
-                                   {"use_static", true}};
+    nlohmann::json glass_parameters{{"max_degree", max_degree},
+                                    {"ef_construction", ef_construction},
+                                    {"ef_search", ef_search},
+                                    {"use_static", false}};
     nlohmann::json index_parameters{
-        {"dtype", "float32"}, {"metric_type", "l2"}, {"dim", dim}, {"hnsw", hnsw_parameters}};
+        {"dtype", "float32"}, {"metric_type", "l2"}, {"dim", dim}, {"glass", glass_parameters}};
 
-    std::shared_ptr<vsag::Index> hnsw;
-    if (auto index = vsag::Factory::CreateIndex("hnsw", index_parameters.dump());
+    std::shared_ptr<vsag::Index> glass;
+    if (auto index = vsag::Factory::CreateIndex("glass", index_parameters.dump());
         index.has_value()) {
-        hnsw = index.value();
+        glass = index.value();
     } else {
         std::cout << "Build HNSW Error" << std::endl;
         return 0;
     }
 
-    if (const auto num = hnsw->Build(dataset); num.has_value()) {
-        std::cout << "After Build(), Index constains: " << hnsw->GetNumElements() << std::endl;
+    if (const auto num = glass->Build(dataset); num.has_value()) {
+        std::cout << "After Build(), Index constains: " << glass->GetNumElements() << std::endl;
     } else if (num.error().type == vsag::ErrorType::INTERNAL_ERROR) {
         std::cerr << "Failed to build index: internalError" << std::endl;
         exit(-1);
@@ -129,15 +191,18 @@ main() {
     float correct = 0;
     float recall = 0;
     {
+        HighPrecisionTimer timer;
         for (int i = 0; i < query_num; i++) {
             auto query = vsag::Dataset::Make();
             query->NumElements(1)->Dim(dim)->Float32Vectors(queries.data() + i * dim)->Owner(false);
 
             nlohmann::json parameters{
-                {"hnsw", {{"ef_search", ef_search}}},
+                {"glass", {{"ef_search", ef_search}}},
             };
             int64_t k = 10;
-            if (auto result = hnsw->KnnSearch(query, k, parameters.dump()); result.has_value()) {
+            timer.start();
+            if (auto result = glass->KnnSearch(query, k, parameters.dump()); result.has_value()) {
+                timer.stop();
                 correct += compute_recall(ground_truth, result.value()->GetIds(), i, k);
             } else if (result.error().type == vsag::ErrorType::INTERNAL_ERROR) {
                 std::cerr << "failed to perform knn search on index" << std::endl;
@@ -148,9 +213,11 @@ main() {
         }
         recall = correct / query_num;
         std::cout << std::fixed << std::setprecision(5)
-                  << "Memory Uasage:" << hnsw->GetMemoryUsage() / 1024.0 << " KB" << std::endl;
+                  << "Memory Uasage:" << glass->GetMemoryUsage() / 1024.0 << " KB" << std::endl;
         std::cout << "Recall: " << recall << std::endl;
-        std::cout << hnsw->GetStats() << std::endl;
+        std::cout << "time cost: " << timer.getTotalTimeMilliseconds() << " ms" << std::endl;
+        std::cout << "time avg cost: " << timer.getTotalTimeMilliseconds() / query_num << " ms"
+                  << std::endl;
     }
 
     return 0;

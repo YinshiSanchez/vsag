@@ -221,6 +221,11 @@ public:
     }
 
     size_t
+    getDim() const {
+        return dim_;
+    }
+
+    size_t
     getCurrentElementCount() override {
         return cur_element_count_;
     }
@@ -267,6 +272,21 @@ public:
     }
 
     InnerIdType
+    getEnterPoint() const {
+        return enterpoint_node_;
+    }
+
+    int
+    getLevels(InnerIdType id) const {
+        return element_levels_[id];
+    }
+
+    int
+    MaxLevel() const {
+        return max_level_;
+    }
+
+    InnerIdType
     mutuallyConnectNewElement(InnerIdType cur_c, MaxHeap& top_candidates, int level, bool isUpdate);
 
     void
@@ -291,11 +311,11 @@ public:
     void
     loadIndex(std::function<void(uint64_t, uint64_t, void*)> read_func,
               SpaceInterface* s,
-              size_t max_elements_i) override;
+              size_t max_elements_i = 0) override;
 
     // load index from a file stream
     void
-    loadIndex(std::istream& in_stream, SpaceInterface* s, size_t max_elements_i) override;
+    loadIndex(std::istream& in_stream, SpaceInterface* s, size_t max_elements_i = 0) override;
 
     // origin load function
     void

@@ -8,5 +8,6 @@
   "k": 100,
   "use_static": false,
   "threshold": 8.0,
-  "file_name": "./data/sift-128-euclidean.hdf5"
+  "file_name": "/data/sift-128-euclidean.hdf5",
+  "index_type": "glass"
 }

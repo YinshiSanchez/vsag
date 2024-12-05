@@ -26,6 +26,8 @@
 
 #include "index/diskann.h"
 #include "index/diskann_zparameters.h"
+#include "index/glass.h"
+#include "index/glass_zparameters.h"
 #include "index/hgraph_index.h"
 #include "index/hgraph_zparameters.h"
 #include "index/hnsw.h"
@@ -101,6 +103,18 @@ Factory::CreateIndex(const std::string& origin_name,
             auto hgraph_index = std::make_shared<HGraphIndex>(hgraph_param.GetJson(), common_param);
             hgraph_index->Init();
             return hgraph_index;
+        } else if (name == INDEX_GLASS) {
+            auto params = CreateGlassParameters::FromJson(parameters);
+            logger::debug("created a glass index");
+            return std::make_shared<Glass>(params.space,
+                                           params.max_degree,
+                                           params.ef_construction,
+                                           params.type,
+                                           params.use_static,
+                                           false,
+                                           params.use_conjugate_graph,
+                                           params.normalize,
+                                           allocator);
         } else {
             LOG_ERROR_AND_RETURNS(
                 ErrorType::UNSUPPORTED_INDEX, "failed to create index(unsupported): ", name);
